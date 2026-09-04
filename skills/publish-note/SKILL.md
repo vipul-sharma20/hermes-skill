@@ -1,19 +1,21 @@
 ---
 name: publish-note
 description: "Publish microblog notes through GitHub and Cloudflare R2."
-version: 1.0.0
+version: 1.0.1
 author: Vipul Sharma (vipul-sharma20), Hermes Agent
 license: MIT
 platforms: [linux, macos]
 required_environment_variables:
-  - name: AWS_ACCESS_KEY_ID
-    prompt: Cloudflare R2 access key ID
-    help: Create an R2 API token with access to the target bucket.
+  - name: PUBLISH_NOTE_R2_ACCESS_KEY_ID
+    prompt: Dedicated Cloudflare R2 access key ID
+    help: Create an R2 token restricted to the target bucket.
     required_for: photo uploads
-  - name: AWS_SECRET_ACCESS_KEY
-    prompt: Cloudflare R2 secret access key
-    help: Use the secret paired with the configured R2 access key ID.
+    optional: true
+  - name: PUBLISH_NOTE_R2_SECRET_ACCESS_KEY
+    prompt: Dedicated Cloudflare R2 secret access key
+    help: Use the secret paired with the dedicated R2 access key ID.
     required_for: photo uploads
+    optional: true
 metadata:
   hermes:
     tags: [Blog, Microblog, GitHub, Cloudflare-R2, Photos]
@@ -36,10 +38,10 @@ Don't use for long-form posts, sites with an incompatible content model, or publ
 
 - `gh` authenticated with write access to the configured repository.
 - `uv` available on `PATH`.
-- A private JSON config based on `templates/config.example.json`.
-- For photo posts, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` configured securely for the target R2 bucket.
+- A private JSON config based on `templates/config.example.json` for text-only notes or `templates/config.images.example.json` for photo notes.
+- For photo posts, optional `PUBLISH_NOTE_R2_ACCESS_KEY_ID` and `PUBLISH_NOTE_R2_SECRET_ACCESS_KEY` values configured securely for the target R2 bucket.
 
-The R2 account ID, bucket, repository, and URLs belong in the local config. Secret access keys belong only in Hermes's secure environment, never in the config, skill, command line, or chat.
+The R2 account ID, bucket, repository, and URLs belong in the local config. Dedicated secret access keys belong only in Hermes's secure environment, never in the config, skill, request file, command line, or chat. Text-only publication requires no R2 fields or credentials.
 
 ## Setup
 
@@ -53,7 +55,7 @@ Done when `gh` identifies an account with write access to the target content rep
 
 ### 2. Create a private config
 
-Copy `templates/config.example.json`, replace every placeholder, and save it outside the skill directory, such as:
+For text-only publication, start from `templates/config.example.json`. For photo publication, start from `templates/config.images.example.json` and replace every image/R2 placeholder. Save the selected config outside the skill directory, such as:
 
 ```text
 ${HERMES_HOME}/publish-note/config.json
@@ -61,16 +63,26 @@ ${HERMES_HOME}/publish-note/config.json
 
 Set mode `0600`. The config contains deployment metadata but no secret access key. Done when no `REPLACE_WITH` value remains and only the owner can read it.
 
-### 3. Test with a dry run
+### 3. Test with a shell-safe dry run
+
+Write the exact note body with `write_file` to:
+
+```text
+${HERMES_HOME}/cache/publish-note-body-${HERMES_SESSION_ID}.txt
+```
+
+Start from `templates/request.example.json` and use `write_file` to create a request at `${HERMES_HOME}/cache/publish-note-${HERMES_SESSION_ID}.json`. Put the fixed config path, note-text path, and any user-controlled image paths inside that JSON. Set `dry_run` to `true`.
+
+Run only the fixed request path; never interpolate note text or image paths into the command:
 
 ```python
 terminal(
-    command='uv run --with boto3 --with pillow --with pillow-heif "${HERMES_SKILL_DIR}/scripts/publish_note.py" --config "${HERMES_HOME:-$HOME/.hermes}/publish-note/config.json" --text "hello from a dry run #example" --dry-run',
+    command='uv run --with "boto3>=1.40,<2" --with "pillow>=11,<13" --with "pillow-heif>=1,<2" "${HERMES_SKILL_DIR}/scripts/publish_note.py" --request "${HERMES_HOME:-$HOME/.hermes}/cache/publish-note-${HERMES_SESSION_ID}.json"',
     timeout=180,
 )
 ```
 
-Inspect the generated path, frontmatter, tags, body, and image metadata before enabling real publication. Done when the output matches the site's content schema.
+Inspect the generated path, frontmatter, tags, body, and image metadata before enabling real publication. Done when the output matches the site's content schema and the body remains byte-for-byte faithful to the text file.
 
 ## Procedure
 
@@ -86,20 +98,24 @@ Done when the exact public body and ordered attachment list are explicit.
 
 ### 2. Choose draft or publication
 
-Use `--draft` only when requested. Use `--dry-run` whenever the user asks to preview or when configuration changed. Done when publication intent is unambiguous.
+Set `draft` in the request only when requested. Set `dry_run` whenever the user asks for a preview or the configuration changed. Done when publication intent is unambiguous.
 
-### 3. Run the publisher
+### 3. Write content and request files
+
+Use `write_file` for the exact public body and for a JSON request based on `templates/request.example.json`. Preserve the requested image order in the `images` array. JSON-encode every path. Never place user-controlled text or paths in a terminal command. Done when the request points to the fixed private config and session text file.
+
+### 4. Run the publisher
 
 ```python
 terminal(
-    command='uv run --with boto3 --with pillow --with pillow-heif "${HERMES_SKILL_DIR}/scripts/publish_note.py" --config "${HERMES_HOME:-$HOME/.hermes}/publish-note/config.json" --text "<exact body>" --image "<path>"',
+    command='uv run --with "boto3>=1.40,<2" --with "pillow>=11,<13" --with "pillow-heif>=1,<2" "${HERMES_SKILL_DIR}/scripts/publish_note.py" --request "${HERMES_HOME:-$HOME/.hermes}/cache/publish-note-${HERMES_SESSION_ID}.json"',
     timeout=300,
 )
 ```
 
-Repeat `--image` in the user's requested order. Omit it for text-only notes. Done when the script prints a permalink or draft edit URL.
+Done when the script prints a permalink or draft edit URL.
 
-### 4. Report the result once
+### 5. Report the result once
 
 Relay the permalink and edit URL without claiming that an asynchronous site build has completed. On `Failed:`, report the failure and stop. Never retry automatically: a successful commit followed by a lost response can otherwise create a duplicate timestamped note.
 
@@ -119,7 +135,8 @@ The publisher in `scripts/publish_note.py` uses the bundled `scripts/image_optim
 
 - Everything in the body becomes public; do not infer or embellish text.
 - JPEG conversion removes transparency and animation.
-- Standard AWS credential variables must point to R2 credentials, not unrelated cloud credentials.
+- Dedicated `PUBLISH_NOTE_R2_*` variables must contain bucket-restricted R2 credentials. The helper ignores standard AWS variables and other ambient credential sources.
+- Never interpolate note text or image paths into a shell command; pass them through the text and request files.
 - The config template is intentionally invalid until all placeholders are replaced.
 - A failed GitHub commit after image upload can leave unreferenced R2 objects.
 - The helper launches the authenticated `gh` executable; review repository and branch values before running.

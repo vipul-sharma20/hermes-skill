@@ -1,7 +1,7 @@
 ---
 name: indian-railways-pnr-monitor
 description: "Monitor Indian Railways PNR changes with scheduled alerts."
-version: 0.1.0
+version: 0.1.1
 author: Vipul Sharma (vipul-sharma20), Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -31,7 +31,7 @@ Don't use for ticket booking, cancellation, high-frequency polling, CAPTCHA bypa
 - Explicit user consent to submit the PNR to RailYatri.
 - A selected Hermes delivery destination.
 
-The PNR is private travel information. Never place it in a job name, cron prompt, log message, repository, or alert body.
+The full PNR is private travel information. Never place it in a job name, cron prompt, log message, repository, or alert body.
 
 ## Setup
 

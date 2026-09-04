@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -80,6 +81,15 @@ def quality_steps(start_quality: int) -> list[int]:
     return steps
 
 
+def next_size(size: tuple[int, int]) -> tuple[int, int]:
+    width, height = size
+    scale = 0.85
+    resized = max(1, round(width * scale)), max(1, round(height * scale))
+    if min(resized) < MIN_EDGE:
+        raise OptimizeError(f"resizing would cross the {MIN_EDGE}px safety floor")
+    return resized
+
+
 def optimize_image(
     source: Path,
     max_bytes: int = DEFAULT_MAX_BYTES,
@@ -117,10 +127,7 @@ def optimize_image(
                 f"shrinking below {MIN_EDGE}px"
             )
 
-        new_size = (
-            max(MIN_EDGE, int(working.width * 0.85)),
-            max(MIN_EDGE, int(working.height * 0.85)),
-        )
+        new_size = next_size(working.size)
         if new_size == working.size:
             raise OptimizeError(f"Optimizer stopped making progress for {source}")
         working = working.resize(new_size, Image.Resampling.LANCZOS)
@@ -129,7 +136,8 @@ def optimize_image(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("sources", nargs="+", type=Path, help="Input image files")
+    parser.add_argument("sources", nargs="*", type=Path, help="Input image files")
+    parser.add_argument("--request", type=Path, help="JSON request file for shell-safe invocation")
     parser.add_argument("--out", type=Path, help="Output path for one input")
     parser.add_argument("--out-dir", type=Path, help="Output directory for one or more inputs")
     parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
@@ -140,6 +148,23 @@ def parse_args() -> argparse.Namespace:
 
 def run() -> int:
     args = parse_args()
+    if args.request:
+        if args.sources or args.out or args.out_dir:
+            raise OptimizeError("--request cannot be combined with path arguments")
+        try:
+            request = json.loads(args.request.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError) as exc:
+            raise OptimizeError(f"Could not load request file: {exc}") from exc
+        if not isinstance(request, dict) or not isinstance(request.get("sources"), list):
+            raise OptimizeError("request must contain a sources array")
+        args.sources = [Path(str(value)) for value in request["sources"]]
+        args.out = Path(str(request["out"])) if request.get("out") else None
+        args.out_dir = Path(str(request["out_dir"])) if request.get("out_dir") else None
+        args.max_bytes = int(request.get("max_bytes", DEFAULT_MAX_BYTES))
+        args.max_edge = int(request.get("max_edge", DEFAULT_MAX_EDGE))
+        args.quality = int(request.get("quality", DEFAULT_QUALITY))
+    if not args.sources:
+        raise OptimizeError("at least one source image is required")
     if args.out and len(args.sources) > 1:
         raise OptimizeError("--out takes one input; use --out-dir for several")
     if not args.out and not args.out_dir:
@@ -147,7 +172,16 @@ def run() -> int:
     if args.out_dir:
         args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    for source in args.sources:
+    if args.out:
+        destinations = [args.out]
+    else:
+        assert args.out_dir is not None
+        destinations = [args.out_dir / f"{source.stem}.jpg" for source in args.sources]
+    normalized = [str(path.resolve()) for path in destinations]
+    if len(normalized) != len(set(normalized)):
+        raise OptimizeError("multiple inputs would write to the same output path")
+
+    for source, destination in zip(args.sources, destinations):
         if not source.is_file():
             raise OptimizeError(f"Not a file: {source}")
         encoded, width, height, quality = optimize_image(
@@ -156,7 +190,6 @@ def run() -> int:
             max_edge=args.max_edge,
             start_quality=args.quality,
         )
-        destination = args.out or (args.out_dir / f"{source.stem}.jpg")
         destination.write_bytes(encoded)
         before = source.stat().st_size
         print(

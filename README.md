@@ -27,11 +27,11 @@ Install one skill directly:
 hermes skills install vipul-sharma20/hermes-skill/skills/<skill-name>
 ```
 
-Or add this repository as a skill tap:
+Or add this repository as a skill tap, then install by the unique short skill name:
 
 ```bash
 hermes skills tap add vipul-sharma20/hermes-skill
-hermes skills install vipul-sharma20/hermes-skill/<skill-name>
+hermes skills install <skill-name>
 ```
 
 Hermes security-scans third-party skills before installation.
@@ -52,7 +52,8 @@ Every skill is sanitized before publication. Live configuration, credentials, st
 Run the complete offline suite with isolated dependencies:
 
 ```bash
-uv run --with pyyaml --with pillow --with pillow-heif --with boto3 \
+uv run --with "pyyaml>=6,<7" --with "pillow>=11,<13" \
+  --with "pillow-heif>=1,<2" --with "boto3>=1.40,<2" \
   python -m unittest discover -s tests -v
 ```
 

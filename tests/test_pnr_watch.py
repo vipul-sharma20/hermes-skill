@@ -52,6 +52,16 @@ class PnrParserTest(unittest.TestCase):
             {"number": 1, "booking": "WL/10", "current": "WL/4"}
         ])
 
+    def test_decodes_javascript_escaped_apostrophes(self):
+        response = (
+            '$("#status").html("<p class=\\\"statusType\\\" '
+            'onclick=\\\"show(\\\'HIGH\\\')\\\">4 Waitlist<\\/p>");'
+        )
+
+        decoded = module.decode_update_html(response)
+
+        self.assertIn("show('HIGH')", decoded)
+
 
 class WatchRunTest(unittest.TestCase):
     def test_baseline_prints_masked_alert_and_persists_state(self):
@@ -71,7 +81,9 @@ class WatchRunTest(unittest.TestCase):
             self.assertIn("PNR ending **7890**", output.getvalue())
             self.assertIn("Passenger 1", output.getvalue())
             self.assertNotIn("1234567890", output.getvalue())
-            self.assertTrue(config_path.with_suffix(".state.json").exists())
+            state_path = config_path.with_suffix(".state.json")
+            self.assertTrue(state_path.exists())
+            self.assertEqual(state_path.stat().st_mode & 0o777, 0o600)
 
     def test_unchanged_run_is_silent(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -93,6 +105,30 @@ class WatchRunTest(unittest.TestCase):
 
             self.assertEqual(event, "no_change")
             self.assertEqual(output.getvalue(), "")
+
+    def test_fetch_failure_masks_full_pnr_and_preserves_state(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "watch.json"
+            config_path.write_text(
+                json.dumps({"pnr": "1234567890", "label": "Example trip"}),
+                encoding="utf-8",
+            )
+            baseline = module.parse_pnr_html(SAMPLE_HTML)
+            with redirect_stdout(io.StringIO()):
+                module.run_watch(config_path, fetcher=lambda _pnr: baseline)
+            output = io.StringIO()
+
+            def fail(pnr):
+                raise RuntimeError(f"failed request for {pnr}")
+
+            with redirect_stdout(output):
+                event = module.run_watch(config_path, fetcher=fail)
+
+            state = json.loads(config_path.with_suffix(".state.json").read_text())
+            self.assertEqual(event, "error_alert")
+            self.assertEqual(state["status"], baseline)
+            self.assertNotIn("1234567890", output.getvalue())
+            self.assertIn("**********", state["last_error"])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,16 @@
 .env
 .env.*
 !.env.example
+*.local.json
+config.local.json
+publish-note/config.json
+publish-note/request*.json
+publish-note/note*.txt
+skills/publish-note/config.json
+skills/publish-note/request*.json
+skills/publish-note/note*.txt
+optimize-image/request*.json
+skills/optimize-image/request*.json
 __pycache__/
 *.py[cod]
 *.state.json

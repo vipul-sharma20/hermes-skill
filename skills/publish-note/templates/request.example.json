@@ -1,0 +1,7 @@
+{
+  "config": "REPLACE_WITH_PRIVATE_CONFIG_PATH",
+  "text_file": "REPLACE_WITH_NOTE_TEXT_FILE_PATH",
+  "images": [],
+  "draft": false,
+  "dry_run": true
+}

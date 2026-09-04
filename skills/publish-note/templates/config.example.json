@@ -2,12 +2,6 @@
   "repo": "REPLACE_WITH_OWNER_REPOSITORY",
   "branch": "main",
   "site_url": "https://example.com",
-  "image_base_url": "https://images.example.com",
-  "r2_account_id": "REPLACE_WITH_R2_ACCOUNT_ID",
-  "bucket": "REPLACE_WITH_BUCKET_NAME",
-  "key_prefix": "micro",
   "content_directory": "content/micro",
-  "timezone": "UTC",
-  "max_image_bytes": 950000,
-  "max_image_edge": 1920
+  "timezone": "UTC"
 }

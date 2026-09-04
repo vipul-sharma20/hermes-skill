@@ -39,6 +39,42 @@ class SkillPackageTest(unittest.TestCase):
                         with self.subTest(skill=skill_file.parent.name, file=supporting_file.name):
                             self.assertIn(f"`{folder}/{supporting_file.name}`", text)
 
+    def test_readme_uses_valid_direct_and_tap_install_forms(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "hermes skills install vipul-sharma20/hermes-skill/skills/<skill-name>",
+            readme,
+        )
+        self.assertIn("hermes skills install <skill-name>", readme)
+        self.assertNotIn(
+            "hermes skills install vipul-sharma20/hermes-skill/<skill-name>",
+            readme,
+        )
+
+    def test_publish_note_photo_credentials_are_optional_and_dedicated(self):
+        text = (SKILLS / "publish-note" / "SKILL.md").read_text(encoding="utf-8")
+        match = re.search(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+        if match is None:
+            self.fail("Missing publish-note frontmatter")
+        frontmatter = yaml.safe_load(match.group(1))
+        variables = frontmatter["required_environment_variables"]
+
+        self.assertEqual(
+            {item["name"] for item in variables},
+            {
+                "PUBLISH_NOTE_R2_ACCESS_KEY_ID",
+                "PUBLISH_NOTE_R2_SECRET_ACCESS_KEY",
+            },
+        )
+        self.assertTrue(all(item.get("optional") is True for item in variables))
+
+    def test_bundled_image_optimizer_copies_are_identical(self):
+        standalone = SKILLS / "optimize-image" / "scripts" / "image_optimizer.py"
+        publisher = SKILLS / "publish-note" / "scripts" / "image_optimizer.py"
+
+        self.assertEqual(standalone.read_bytes(), publisher.read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -50,7 +50,7 @@ class PreparedImage(NamedTuple):
     quality: int
 
 
-def load_config(path: Path) -> dict:
+def load_config(path: Path, *, require_images: bool = False) -> dict:
     try:
         config = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -60,14 +60,9 @@ def load_config(path: Path) -> dict:
     if not isinstance(config, dict):
         raise PublishError("Configuration must be a JSON object")
 
-    required = (
-        "repo",
-        "branch",
-        "site_url",
-        "image_base_url",
-        "r2_account_id",
-        "bucket",
-    )
+    required = ["repo", "branch", "site_url"]
+    if require_images:
+        required.extend(["image_base_url", "r2_account_id", "bucket"])
     missing = [key for key in required if not str(config.get(key, "")).strip()]
     if missing:
         raise PublishError(f"Configuration is missing: {', '.join(missing)}")
@@ -75,7 +70,10 @@ def load_config(path: Path) -> dict:
         raise PublishError("Configuration still contains an unreplaced placeholder")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", str(config["repo"])):
         raise PublishError("repo must use owner/repository format")
-    for key in ("site_url", "image_base_url"):
+    url_keys = ["site_url"]
+    if require_images:
+        url_keys.append("image_base_url")
+    for key in url_keys:
         parsed = urlparse(str(config[key]))
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise PublishError(f"{key} must be an absolute HTTP(S) URL")
@@ -152,7 +150,8 @@ def build_note_markdown(
 ) -> str:
     lines = ["---", f"date: {frontmatter_date}"]
     if tags:
-        lines.append(f"tags: [{', '.join(tags)}]")
+        serialized_tags = ", ".join(json.dumps(tag, ensure_ascii=False) for tag in tags)
+        lines.append(f"tags: [{serialized_tags}]")
     if draft:
         lines.append("draft: true")
     if images:
@@ -231,11 +230,30 @@ def commit_file(repo: str, branch: str, path: str, markdown: str, message: str) 
 def r2_client(account_id: str):
     try:
         import boto3
+        from botocore.credentials import EnvProvider
     except ImportError as exc:
         raise PublishError("boto3 is required when publishing images") from exc
+
+    provider = EnvProvider(
+        mapping={
+            "access_key": "PUBLISH_NOTE_R2_ACCESS_KEY_ID",
+            "secret_key": "PUBLISH_NOTE_R2_SECRET_ACCESS_KEY",  # pragma: allowlist secret -- variable name only
+            "token": "PUBLISH_NOTE_R2_SESSION_TOKEN",
+        }
+    )
+    credentials = provider.load()
+    if credentials is None:
+        raise PublishError(
+            "dedicated R2 credentials are missing; configure "
+            "PUBLISH_NOTE_R2_ACCESS_KEY_ID and PUBLISH_NOTE_R2_SECRET_ACCESS_KEY"
+        )
+    frozen = credentials.get_frozen_credentials()
     return boto3.client(
         "s3",
         endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=frozen.access_key,
+        aws_secret_access_key=frozen.secret_key,
+        aws_session_token=frozen.token,
         region_name="auto",
     )
 
@@ -293,8 +311,10 @@ def upload_images(client, bucket: str, images: list[PreparedImage]) -> None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--text", default="", help="Note text or photo caption")
+    parser.add_argument("--request", type=Path, help="JSON request file for shell-safe invocation")
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--text", default="", help="Note text for direct CLI use")
+    parser.add_argument("--text-file", type=Path, help="Read exact note text from a file")
     parser.add_argument("--image", action="append", default=[], dest="images")
     parser.add_argument("--draft", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -305,10 +325,38 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def run(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    config = load_config(args.config)
-    body, tags, draft_from_text = parse_note_text(args.text)
-    draft = draft_from_text or args.draft
+    if args.request:
+        if args.config or args.text or args.text_file or args.images or args.draft or args.dry_run:
+            raise PublishError("--request cannot be combined with publication arguments")
+        try:
+            request = json.loads(args.request.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError) as exc:
+            raise PublishError(f"Could not load request file: {exc}") from exc
+        if not isinstance(request, dict) or not request.get("config"):
+            raise PublishError("request must contain a config path")
+        args.config = Path(str(request["config"]))
+        args.text_file = Path(str(request["text_file"])) if request.get("text_file") else None
+        args.images = [str(value) for value in request.get("images", [])]
+        args.draft = bool(request.get("draft", False))
+        args.dry_run = bool(request.get("dry_run", False))
+        args.max_image_bytes = request.get("max_image_bytes")
+        args.max_image_edge = request.get("max_image_edge")
+    if args.config is None:
+        raise PublishError("--config or --request is required")
+    if args.text and args.text_file:
+        raise PublishError("use either --text or --text-file, not both")
+    if args.text_file:
+        try:
+            note_text = args.text_file.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise PublishError(f"Note text file not found: {args.text_file}") from exc
+    else:
+        note_text = args.text
+
     image_paths = [Path(value).expanduser() for value in args.images]
+    config = load_config(args.config, require_images=bool(image_paths))
+    body, tags, draft_from_text = parse_note_text(note_text)
+    draft = draft_from_text or args.draft
     if not body and not image_paths:
         raise PublishError("Nothing to publish: no text and no images")
 
@@ -324,16 +372,19 @@ def run(argv: list[str] | None = None) -> int:
             content_directory,
         )
 
-    images = prepare_images(
-        image_paths,
-        prefix=str(config.get("key_prefix", "micro")),
-        parts=parts,
-        suffix=suffix,
-        image_base_url=str(config["image_base_url"]),
-        max_image_bytes=args.max_image_bytes
-        or int(config.get("max_image_bytes", 950_000)),
-        max_image_edge=args.max_image_edge or int(config.get("max_image_edge", 1_920)),
-    )
+    images = []
+    if image_paths:
+        images = prepare_images(
+            image_paths,
+            prefix=str(config.get("key_prefix", "micro")),
+            parts=parts,
+            suffix=suffix,
+            image_base_url=str(config["image_base_url"]),
+            max_image_bytes=args.max_image_bytes
+            or int(config.get("max_image_bytes", 950_000)),
+            max_image_edge=args.max_image_edge
+            or int(config.get("max_image_edge", 1_920)),
+        )
     markdown = build_note_markdown(parts.frontmatter, tags, images, draft, body)
     if args.dry_run:
         print(f"--- would commit {path}", file=sys.stderr)
