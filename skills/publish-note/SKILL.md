@@ -82,7 +82,7 @@ terminal(
 )
 ```
 
-Inspect the generated path, frontmatter, tags, body, and image metadata before enabling real publication. Done when the output matches the site's content schema and the body remains byte-for-byte faithful to the text file.
+Inspect the generated path, frontmatter, tags, body, and image metadata before enabling real publication. Done when the output matches the site's content schema and the body matches the intended text after documented whitespace trimming and trailing-tag extraction.
 
 ## Procedure
 

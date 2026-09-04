@@ -46,8 +46,7 @@ class SkillPackageTest(unittest.TestCase):
             "hermes skills install vipul-sharma20/hermes-skill/skills/<skill-name>",
             readme,
         )
-        self.assertIn("hermes skills install <skill-name>", readme)
-        self.assertNotIn(
+        self.assertIn(
             "hermes skills install vipul-sharma20/hermes-skill/<skill-name>",
             readme,
         )

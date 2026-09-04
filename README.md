@@ -27,11 +27,11 @@ Install one skill directly:
 hermes skills install vipul-sharma20/hermes-skill/skills/<skill-name>
 ```
 
-Or add this repository as a skill tap, then install by the unique short skill name:
+Or add this repository as a skill tap, then install with the tap-qualified identifier:
 
 ```bash
 hermes skills tap add vipul-sharma20/hermes-skill
-hermes skills install <skill-name>
+hermes skills install vipul-sharma20/hermes-skill/<skill-name>
 ```
 
 Hermes security-scans third-party skills before installation.
