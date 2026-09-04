@@ -1,0 +1,11 @@
+{
+  "repo": "example/site-content",
+  "branch": "main",
+  "site_url": "https://example.com",
+  "image_base_url": "https://images.example.com",
+  "r2_account_id": "example-account",
+  "bucket": "example-bucket",
+  "key_prefix": "micro",
+  "content_directory": "content/micro",
+  "timezone": "UTC"
+}
