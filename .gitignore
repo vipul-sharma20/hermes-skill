@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.state.json
+*.audit.jsonl
+pnr-watches/
+.DS_Store
