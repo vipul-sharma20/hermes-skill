@@ -38,7 +38,23 @@ Hermes security-scans third-party skills before installation.
 
 ## Published skills
 
-No skills have been published yet. They will be added and reviewed one at a time.
+| Skill | Purpose |
+|---|---|
+| [`kanban-task-management`](skills/kanban-task-management/SKILL.md) | Create and verify work items on the board the user actually named. |
+| [`optimize-image`](skills/optimize-image/SKILL.md) | Compress images to byte and dimension limits with minimal quality loss. |
+| [`indian-railways-pnr-monitor`](skills/indian-railways-pnr-monitor/SKILL.md) | Monitor RailYatri PNR status changes with silent-unless-changed cron jobs. |
+| [`publish-note`](skills/publish-note/SKILL.md) | Publish GitHub-backed microblog notes with optional Cloudflare R2 images. |
+
+Every skill is sanitized before publication. Live configuration, credentials, state files, personal PNRs, private workspace identifiers, and machine-specific paths are excluded.
+
+## Testing
+
+Run the complete offline suite with isolated dependencies:
+
+```bash
+uv run --with pyyaml --with pillow --with pillow-heif --with boto3 \
+  python -m unittest discover -s tests -v
+```
 
 ## License
 

@@ -105,6 +105,8 @@ Relay the permalink and edit URL without claiming that an asynchronous site buil
 
 ## Behavior
 
+The publisher in `scripts/publish_note.py` uses the bundled `scripts/image_optimizer.py` helper, so the skill does not depend on a machine-local library.
+
 - Corrects EXIF orientation and converts images to JPEG.
 - Flattens transparency onto white.
 - Steps JPEG quality down before reducing dimensions.
