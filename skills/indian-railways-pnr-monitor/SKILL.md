@@ -37,7 +37,7 @@ The PNR is private travel information. Never place it in a job name, cron prompt
 
 ### 1. Install the cron script
 
-Copy the reviewed helper into the profile's cron-script directory:
+The bundled helper is `scripts/pnr_watch.py`. Copy it into the profile's cron-script directory:
 
 ```python
 terminal(

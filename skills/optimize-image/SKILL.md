@@ -13,7 +13,7 @@ metadata:
 
 # Optimize Image
 
-Re-encode images as JPEG under a byte budget while preserving as much quality and resolution as possible. The helper fixes EXIF orientation, flattens transparency onto white, and optionally reads HEIC or HEIF originals.
+Re-encode images as JPEG under a byte budget while preserving as much quality and resolution as possible. The helper fixes EXIF orientation, flattens transparency onto white, and optionally reads HEIC or HEIF originals. The bundled executable is `scripts/image_optimizer.py`.
 
 ## When to Use
 

@@ -37,7 +37,7 @@ class SkillPackageTest(unittest.TestCase):
                 for supporting_file in directory.iterdir():
                     if supporting_file.is_file():
                         with self.subTest(skill=skill_file.parent.name, file=supporting_file.name):
-                            self.assertIn(f"{folder}/{supporting_file.name}", text)
+                            self.assertIn(f"`{folder}/{supporting_file.name}`", text)
 
 
 if __name__ == "__main__":
