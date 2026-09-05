@@ -16,4 +16,5 @@ __pycache__/
 *.state.json
 *.audit.jsonl
 pnr-watches/
+train-running-watches/
 .DS_Store

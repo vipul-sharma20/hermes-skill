@@ -1,0 +1,10 @@
+{
+  "train_number": "REPLACE_WITH_TRAIN_NUMBER",
+  "journey_date": "YYYY-MM-DD",
+  "source": "REPLACE_WITH_ORIGIN_STATION_CODE",
+  "destination": "REPLACE_WITH_DESTINATION_STATION_CODE",
+  "monitor_from": "YYYY-MM-DDTHH:MM:SS+05:30",
+  "monitor_until": "YYYY-MM-DDTHH:MM:SS+05:30",
+  "label": "Rail journey",
+  "mention": ""
+}
