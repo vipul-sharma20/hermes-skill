@@ -22,8 +22,11 @@ except ImportError:
 DEFAULT_MAX_BYTES = 950_000
 DEFAULT_MAX_EDGE = 1_920
 DEFAULT_QUALITY = 88
+DEFAULT_WEBP_QUALITY = 90
 MIN_QUALITY = 45
 MIN_EDGE = 320
+OUTPUT_FORMATS = {"jpeg", "webp"}
+FORMAT_EXTENSIONS = {"jpeg": {".jpg", ".jpeg"}, "webp": {".webp"}}
 SUPPORTED_EXTENSIONS = {
     ".avif",
     ".heic",
@@ -74,6 +77,25 @@ def encode_jpeg(image: Image.Image, quality: int) -> bytes:
     return output.getvalue()
 
 
+def encode_webp(image: Image.Image, quality: int) -> bytes:
+    output = io.BytesIO()
+    image.save(
+        output,
+        format="WEBP",
+        quality=quality,
+        method=6,
+    )
+    return output.getvalue()
+
+
+def encode_image(image: Image.Image, quality: int, output_format: str) -> bytes:
+    if output_format == "jpeg":
+        return encode_jpeg(image, quality)
+    if output_format == "webp":
+        return encode_webp(image, quality)
+    raise OptimizeError(f"format must be one of: {', '.join(sorted(OUTPUT_FORMATS))}")
+
+
 def quality_steps(start_quality: int) -> list[int]:
     steps = list(range(start_quality, MIN_QUALITY, -5))
     if not steps or steps[-1] != MIN_QUALITY:
@@ -94,15 +116,20 @@ def optimize_image(
     source: Path,
     max_bytes: int = DEFAULT_MAX_BYTES,
     max_edge: int = DEFAULT_MAX_EDGE,
-    start_quality: int = DEFAULT_QUALITY,
+    start_quality: int | None = None,
+    output_format: str = "jpeg",
 ) -> tuple[bytes, int, int, int]:
-    """Encode source as a JPEG and return bytes, width, height, and quality."""
+    """Encode source and return bytes, width, height, and quality."""
     if max_bytes <= 0:
         raise OptimizeError("max_bytes must be positive")
     if max_edge < MIN_EDGE:
         raise OptimizeError(f"max_edge must be at least {MIN_EDGE}")
+    if start_quality is None:
+        start_quality = DEFAULT_WEBP_QUALITY if output_format == "webp" else DEFAULT_QUALITY
     if not MIN_QUALITY <= start_quality <= 95:
         raise OptimizeError(f"quality must be between {MIN_QUALITY} and 95")
+    if output_format not in OUTPUT_FORMATS:
+        raise OptimizeError(f"format must be one of: {', '.join(sorted(OUTPUT_FORMATS))}")
 
     try:
         with Image.open(source) as opened:
@@ -117,7 +144,7 @@ def optimize_image(
 
     while True:
         for quality in quality_steps(start_quality):
-            encoded = encode_jpeg(working, quality)
+            encoded = encode_image(working, quality, output_format)
             if len(encoded) <= max_bytes:
                 return encoded, working.width, working.height, quality
 
@@ -142,7 +169,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, help="Output directory for one or more inputs")
     parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
     parser.add_argument("--max-edge", type=int, default=DEFAULT_MAX_EDGE)
-    parser.add_argument("--quality", type=int, default=DEFAULT_QUALITY)
+    parser.add_argument("--quality", type=int)
+    parser.add_argument("--format", choices=sorted(OUTPUT_FORMATS), default="jpeg")
     return parser.parse_args()
 
 
@@ -162,7 +190,11 @@ def run() -> int:
         args.out_dir = Path(str(request["out_dir"])) if request.get("out_dir") else None
         args.max_bytes = int(request.get("max_bytes", DEFAULT_MAX_BYTES))
         args.max_edge = int(request.get("max_edge", DEFAULT_MAX_EDGE))
-        args.quality = int(request.get("quality", DEFAULT_QUALITY))
+        requested_quality = request.get("quality")
+        args.quality = int(requested_quality) if requested_quality is not None else None
+        args.format = str(request.get("format", "jpeg")).lower()
+    if args.format not in OUTPUT_FORMATS:
+        raise OptimizeError(f"format must be one of: {', '.join(sorted(OUTPUT_FORMATS))}")
     if not args.sources:
         raise OptimizeError("at least one source image is required")
     if args.out and len(args.sources) > 1:
@@ -176,7 +208,16 @@ def run() -> int:
         destinations = [args.out]
     else:
         assert args.out_dir is not None
-        destinations = [args.out_dir / f"{source.stem}.jpg" for source in args.sources]
+        extension = ".jpg" if args.format == "jpeg" else ".webp"
+        destinations = [args.out_dir / f"{source.stem}{extension}" for source in args.sources]
+    invalid_destinations = [
+        path for path in destinations if path.suffix.lower() not in FORMAT_EXTENSIONS[args.format]
+    ]
+    if invalid_destinations:
+        expected = ", ".join(sorted(FORMAT_EXTENSIONS[args.format]))
+        raise OptimizeError(
+            f"output extension for {args.format} must be one of: {expected}"
+        )
     normalized = [str(path.resolve()) for path in destinations]
     if len(normalized) != len(set(normalized)):
         raise OptimizeError("multiple inputs would write to the same output path")
@@ -189,6 +230,7 @@ def run() -> int:
             max_bytes=args.max_bytes,
             max_edge=args.max_edge,
             start_quality=args.quality,
+            output_format=args.format,
         )
         destination.write_bytes(encoded)
         before = source.stat().st_size

@@ -42,6 +42,25 @@ class OptimizeImageTest(unittest.TestCase):
                 self.assertEqual(result.mode, "RGB")
                 self.assertEqual(result.format, "JPEG")
 
+    def test_webp_output_is_encoded_under_budget(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "input.png"
+            Image.new("RGB", (640, 480), (100, 150, 200)).save(source)
+
+            encoded, width, height, quality = module.optimize_image(
+                source,
+                max_bytes=100_000,
+                max_edge=320,
+                output_format="webp",
+            )
+
+            self.assertLessEqual(len(encoded), 100_000)
+            self.assertEqual((width, height), (320, 240))
+            self.assertEqual(quality, 90)
+            with Image.open(io.BytesIO(encoded)) as result:
+                self.assertEqual(result.mode, "RGB")
+                self.assertEqual(result.format, "WEBP")
+
     def test_rejects_nonpositive_size_budget(self):
         with self.assertRaisesRegex(module.OptimizeError, "must be positive"):
             module.optimize_image(Path("unused.png"), max_bytes=0)
@@ -74,6 +93,56 @@ class OptimizeImageTest(unittest.TestCase):
     def test_resize_step_refuses_to_cross_dimension_floor(self):
         with self.assertRaisesRegex(module.OptimizeError, "safety floor"):
             module.next_size((340, 680))
+
+    def test_rejects_output_extension_that_mismatches_format(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "input.png"
+            destination = root / "output.jpg"
+            Image.new("RGB", (32, 32), "purple").save(source)
+
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "image_optimizer.py",
+                    str(source),
+                    "--out",
+                    str(destination),
+                    "--format",
+                    "webp",
+                ],
+            ):
+                with self.assertRaisesRegex(module.OptimizeError, "extension"):
+                    module.run()
+
+    def test_request_file_webp_format_uses_webp_extension(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "input.png"
+            output = root / "output"
+            request = root / "request.json"
+            Image.new("RGB", (64, 64), "blue").save(source)
+            request.write_text(
+                json.dumps(
+                    {
+                        "sources": [str(source)],
+                        "out_dir": str(output),
+                        "format": "webp",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.object(sys, "argv", ["image_optimizer.py", "--request", str(request)]):
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    code = module.run()
+
+            destination = output / "input.webp"
+            self.assertEqual(code, 0)
+            self.assertTrue(destination.exists())
+            with Image.open(destination) as result:
+                self.assertEqual(result.format, "WEBP")
 
     def test_request_file_treats_shell_metacharacters_as_literal_path_text(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -3,5 +3,6 @@
   "out": "REPLACE_WITH_OUTPUT_PATH",
   "max_bytes": 950000,
   "max_edge": 1920,
-  "quality": 88
+  "quality": 90,
+  "format": "webp"
 }
