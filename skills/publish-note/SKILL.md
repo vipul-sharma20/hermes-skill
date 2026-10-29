@@ -1,7 +1,7 @@
 ---
 name: publish-note
 description: "Publish microblog notes through GitHub and Cloudflare R2."
-version: 1.0.1
+version: 1.1.0
 author: Vipul Sharma (vipul-sharma20), Hermes Agent
 license: MIT
 platforms: [linux, macos]
@@ -123,18 +123,23 @@ Relay the permalink and edit URL without claiming that an asynchronous site buil
 
 The publisher in `scripts/publish_note.py` uses the bundled `scripts/image_optimizer.py` helper, so the skill does not depend on a machine-local library.
 
-- Corrects EXIF orientation and converts images to JPEG.
+- Corrects EXIF orientation and re-encodes images as lossy WebP.
 - Flattens transparency onto white.
-- Steps JPEG quality down before reducing dimensions.
+- Defaults to at most 500000 bytes and a 1920px longest edge, starting at quality 88.
+- Steps WebP quality down before reducing dimensions to meet the byte limit.
+- Omits source metadata on re-encode, including EXIF, GPS, XMP, and ICC profiles.
+- Uses `.webp` object keys and public URLs, with upload `ContentType=image/webp`.
 - Deduplicates identical images within one post.
 - Uploads photos to R2 before committing Markdown.
 - Uses `gh api` for repository reads and commits.
 - Adds a letter suffix when a note already exists for the same minute.
 
+Config fields `max_image_bytes` and `max_image_edge` override the publisher defaults. Explicit request fields of the same names (or direct CLI flags `--max-image-bytes` and `--max-image-edge`) take precedence over config. Existing configs keep their explicit limits; update them to 500000 bytes and 1920px to use the microblog policy.
+
 ## Pitfalls
 
 - Everything in the body becomes public; do not infer or embellish text.
-- JPEG conversion removes transparency and animation.
+- WebP conversion removes transparency and animation; the output is a still image.
 - Dedicated `PUBLISH_NOTE_R2_*` variables must contain bucket-restricted R2 credentials. The helper ignores standard AWS variables and other ambient credential sources.
 - Never interpolate note text or image paths into a shell command; pass them through the text and request files.
 - The config template is intentionally invalid until all placeholders are replaced.
@@ -148,5 +153,8 @@ The publisher in `scripts/publish_note.py` uses the bundled `scripts/image_optim
 - [ ] No credentials or private config are inside the skill directory.
 - [ ] GitHub repository and branch are correct.
 - [ ] Every image URL uses the configured public image hostname.
+- [ ] Image bytes decode as WebP, not merely a renamed JPEG; object keys and URLs end in `.webp`, and uploads use `image/webp`.
+- [ ] Every image fits the effective byte and dimension limits (defaults: at most 500000 bytes and 1920px longest edge).
+- [ ] Orientation is applied to pixels, and no source EXIF/GPS, XMP, or ICC metadata is carried into the output.
 - [ ] Published note can be read back from GitHub at the returned edit URL.
 - [ ] A failure is not retried until GitHub is checked for an existing note.

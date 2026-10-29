@@ -24,6 +24,21 @@ spec.loader.exec_module(module)
 
 
 class OptimizeImageTest(unittest.TestCase):
+    def test_default_policy_remains_jpeg_with_legacy_budget(self):
+        self.assertEqual(module.DEFAULT_MAX_BYTES, 950_000)
+        self.assertEqual(module.DEFAULT_MAX_EDGE, 1_920)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "photo.png"
+            Image.new("RGB", (64, 32), "blue").save(source)
+
+            encoded, width, height, quality = module.optimize_image(source)
+
+            self.assertLessEqual(len(encoded), 950_000)
+            self.assertEqual((width, height), (64, 32))
+            self.assertEqual(quality, 88)
+            with Image.open(io.BytesIO(encoded)) as result:
+                self.assertEqual(result.format, "JPEG")
+
     def test_rgba_image_is_encoded_under_budget(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             source = Path(temp_dir) / "input.png"

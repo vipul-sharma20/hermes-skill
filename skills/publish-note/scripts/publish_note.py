@@ -138,7 +138,7 @@ def note_permalink(site_url: str, parts: DateParts, suffix: str = "") -> str:
 
 def image_object_key(prefix: str, parts: DateParts, suffix: str, digest: str) -> str:
     clean_prefix = prefix.strip("/") or "micro"
-    return f"{clean_prefix}/{parts.year}/{parts.date}-{note_slug(parts, suffix)}/{digest[:16]}.jpg"
+    return f"{clean_prefix}/{parts.year}/{parts.date}-{note_slug(parts, suffix)}/{digest[:16]}.webp"
 
 
 def build_note_markdown(
@@ -277,6 +277,8 @@ def prepare_images(
             path,
             max_bytes=max_image_bytes,
             max_edge=max_image_edge,
+            start_quality=88,
+            output_format="webp",
         )
         digest = hashlib.sha256(encoded).hexdigest()
         if digest in seen:
@@ -302,7 +304,7 @@ def upload_images(client, bucket: str, images: list[PreparedImage]) -> None:
             Bucket=bucket,
             Key=image.key,
             Body=image.data,
-            ContentType="image/jpeg",
+            ContentType="image/webp",
             ContentDisposition="inline",
             CacheControl="public, max-age=31536000, immutable",
             Metadata={"sha256": image.key.rsplit("/", 1)[-1].split(".")[0]},
@@ -381,7 +383,7 @@ def run(argv: list[str] | None = None) -> int:
             suffix=suffix,
             image_base_url=str(config["image_base_url"]),
             max_image_bytes=args.max_image_bytes
-            or int(config.get("max_image_bytes", 950_000)),
+            or int(config.get("max_image_bytes", 500_000)),
             max_image_edge=args.max_image_edge
             or int(config.get("max_image_edge", 1_920)),
         )
