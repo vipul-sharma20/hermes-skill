@@ -1,0 +1,7 @@
+{
+  "provider": "example-provider",
+  "platform": "linux/amd64",
+  "cpus": 1,
+  "memory_mib": 2048,
+  "max_running_orbs": 1
+}

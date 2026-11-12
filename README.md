@@ -40,6 +40,8 @@ Hermes security-scans third-party skills before installation.
 
 | Skill | Purpose |
 |---|---|
+| [`amp-hermes-mcp`](skills/amp-hermes-mcp/SKILL.md) | Connect Amp to scoped Hermes consultation and separately approved action requests. |
+| [`amp-self-hosted-orbs`](skills/amp-self-hosted-orbs/SKILL.md) | Run Docker-backed Amp orbs with scoped lifecycle handling and resource ceilings. |
 | [`kanban-task-management`](skills/kanban-task-management/SKILL.md) | Create and verify work items on the board the user actually named. |
 | [`optimize-image`](skills/optimize-image/SKILL.md) | Compress images to byte and dimension limits with minimal quality loss. |
 | [`indian-railways-pnr-monitor`](skills/indian-railways-pnr-monitor/SKILL.md) | Monitor RailYatri PNR status changes with silent-unless-changed cron jobs. |
@@ -48,9 +50,11 @@ Hermes security-scans third-party skills before installation.
 
 Every skill is sanitized before publication. Live configuration, credentials, state files, personal PNRs, private workspace identifiers, and machine-specific paths are excluded.
 
+The Amp skills document reusable setup and verification workflows, not a copy of a personal deployment. `amp-hermes-mcp` does not bundle a running MCP server. Installing either skill only makes its instructions and bundled files available; it does not register an account integration, start services, or change a host. Those operations require the operator's authorized setup and verification.
+
 ## Testing
 
-Run the complete offline suite with isolated dependencies:
+Run the complete offline suite with isolated dependencies. Tests do not register Amp integrations or start providers; the orb dispatcher's Docker boundary is exercised with a fake CLI, not a live Docker daemon or Amp account.
 
 ```bash
 uv run --with "pyyaml>=6,<7" --with "pillow>=11,<13" \

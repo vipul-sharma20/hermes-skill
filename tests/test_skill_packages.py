@@ -39,6 +39,13 @@ class SkillPackageTest(unittest.TestCase):
                         with self.subTest(skill=skill_file.parent.name, file=supporting_file.name):
                             self.assertIn(f"`{folder}/{supporting_file.name}`", text)
 
+    def test_every_skill_is_indexed_in_readme(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for skill_file in sorted(SKILLS.glob("*/SKILL.md")):
+            target = f"skills/{skill_file.parent.name}/SKILL.md"
+            with self.subTest(skill=skill_file.parent.name):
+                self.assertEqual(readme.count(f"]({target})"), 1)
+
     def test_readme_uses_valid_direct_and_tap_install_forms(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
