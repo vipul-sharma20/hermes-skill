@@ -117,7 +117,13 @@ Done when the script prints a permalink or draft edit URL.
 
 ### 5. Report the result once
 
-Relay the permalink and edit URL without claiming that an asynchronous site build has completed. On `Failed:`, report the failure and stop. Never retry automatically: a successful commit followed by a lost response can otherwise create a duplicate timestamped note.
+Relay the permalink and edit URL without claiming that an asynchronous site build has completed. The helper's `publication triggered` message is not proof a build was queued; verify the configured site's pipeline and public page separately. On `Failed:`, report the failure and stop. Never retry automatically: a successful commit followed by a lost response can otherwise create a duplicate timestamped note.
+
+## Edited source and follow-ups
+
+For an edited source message, re-read its original live record before using its text. Follow `references/publishing-followups.md` to identify and correct an existing note rather than publishing another timestamped copy. Source edits do not themselves authorize publication.
+
+The same reference separates commits, builds and public-page verification, plus media-only work from publication. Upload-only intent is not permission for a note or commit. Exact-key origin deletion and exact-URL CDN purge require separately authorized operations; neither can recall downloaded copies. The bundled publisher supplies no upload-only, deletion or purge command.
 
 ## Behavior
 
@@ -134,7 +140,7 @@ The publisher in `scripts/publish_note.py` uses the bundled `scripts/image_optim
 - Uses `gh api` for repository reads and commits.
 - Adds a letter suffix when a note already exists for the same minute.
 
-Config fields `max_image_bytes` and `max_image_edge` override the publisher defaults. Explicit request fields of the same names (or direct CLI flags `--max-image-bytes` and `--max-image-edge`) take precedence over config. Existing configs keep their explicit limits; update them to 500000 bytes and 1920px to use the microblog policy.
+Config fields `max_image_bytes` and `max_image_edge` override the publisher defaults. Explicit request fields of the same names (or direct CLI flags `--max-image-bytes` and `--max-image-edge`) take precedence over config. Existing configs keep their explicit limits. Preserve existing explicit limits unless the user authorizes a change; do not rewrite a site's policy merely to match defaults. See `references/publishing-followups.md` for the positive-value/fallback behavior and credential boundaries.
 
 ## Pitfalls
 

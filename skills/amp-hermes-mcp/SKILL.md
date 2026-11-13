@@ -145,6 +145,10 @@ Read back the created canary thread's actual visibility and confirm it is `priva
 
 Inspect actual tool-use/result events, not merely an agent's success claim. Separately test one clearly labeled queue/notification request, read back the delivered message by ID, and record it declined. Archive only the canary; verify its orb is stopped and leave active user threads alone. Report real results and the initial knowledge scope without implying whole-wiki access. Done when the authenticated consumer, actual consultation, private approval-request delivery and cleanup are all verified.
 
+## Existing deployments and private handoffs
+
+Use `references/permission-modes-and-artifacts.md` to inspect actual permission mode before reusing old verification helpers, and to verify privately handed-off artifacts. This does not authorize changing trust mode or weakening the scoped consultation, Ask First, separate owner approval or fail-closed compatibility gates above.
+
 ## Pitfalls
 
 - Broad shell/file/session-search tools, full profile copies and prompt-only restrictions defeat the intended boundary.

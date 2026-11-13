@@ -40,6 +40,11 @@ Hermes security-scans third-party skills before installation.
 
 | Skill | Purpose |
 |---|---|
+| [`skill-library-maintenance`](skills/skill-library-maintenance/SKILL.md) | Audit learning, consolidate proposal backlogs, and review portable releases with reversible changes. |
+| [`state-change-monitoring`](skills/state-change-monitoring/SKILL.md) | Design bounded change-only monitors with last-good state and explicit delivery semantics. |
+| [`self-hosted-operations`](skills/self-hosted-operations/SKILL.md) | Diagnose and maintain shared Linux hosts with evidence, scoped changes, and rollback. |
+| [`licensed-media-curation`](skills/licensed-media-curation/SKILL.md) | Verify image identity, image-specific rights, integrity, and useful visual coverage. |
+| [`container-storage-migration`](skills/container-storage-migration/SKILL.md) | Plan and verify Docker storage moves with backup, ownership, and recovery checks. |
 | [`amp-hermes-mcp`](skills/amp-hermes-mcp/SKILL.md) | Connect Amp to scoped Hermes consultation and separately approved action requests. |
 | [`amp-self-hosted-orbs`](skills/amp-self-hosted-orbs/SKILL.md) | Run Docker-backed Amp orbs with scoped lifecycle handling and resource ceilings. |
 | [`kanban-task-management`](skills/kanban-task-management/SKILL.md) | Create and verify work items on the board the user actually named. |
@@ -49,6 +54,8 @@ Hermes security-scans third-party skills before installation.
 | [`publish-note`](skills/publish-note/SKILL.md) | Publish GitHub-backed microblog notes with optional Cloudflare R2 images. |
 
 Every skill is sanitized before publication. Live configuration, credentials, state files, personal PNRs, private workspace identifiers, and machine-specific paths are excluded.
+
+The maintenance, monitoring-design, self-hosted-operations, licensed-media-curation, and storage-migration packages are **procedure-only**. They provide instructions and bundled reference contracts, not deployed collectors, migration executables, or automatic publication. Loading them grants no operational permissions. Publication-audit guidance is included in the maintenance package rather than a separate overlapping skill.
 
 The Amp skills document reusable setup and verification workflows, not a copy of a personal deployment. `amp-hermes-mcp` does not bundle a running MCP server. Installing either skill only makes its instructions and bundled files available; it does not register an account integration, start services, or change a host. Those operations require the operator's authorized setup and verification.
 
